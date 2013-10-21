@@ -5,7 +5,7 @@ using JuMP
 # (a,b) -> ax + b = f'(z)*x + (f(z)-x*f'(x)) (from f(z) + f'(z)(x-z))
 @everywhere function f(input)
     x,i = input
-    sleep(max(0.1,0.2+randn())) # simulate computation time
+    sleep(0.2+rand()/4) # simulate computation time
     return ((x-i),0.5(x-i)^2-x*(x-i))
 end
 
@@ -21,7 +21,7 @@ function cp(N::Integer)
 
     niter = 0
     while abs(x-answer) > 1e-4 # cheating
-        results = pmap(f,[(x,i) for i in 1:N])
+        results = map(f,[(x,i) for i in 1:N])
         push!(subgradients, results)
         x = optimize(N,subgradients)
         println("Model minimizer: ", x)
