@@ -1,4 +1,4 @@
 18.377
 ======
 
-Example for 18.377 class
+Materials for guest lecture in 18.337, October 3, 2016
