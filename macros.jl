@@ -50,27 +50,3 @@ end
 
 @code_lowered foo()
 
-macro bar()
-    quote
-        x = 10
-        x - y
-    end
-end
-function bar2()
-    y = 11
-    @bar
-end
-
-# Hygiene (escaping)
-macro example1(ex)
-    return ex
-end
-
-# escaping
-macro example2(ex)
-    return esc(ex)
-end
-
-macro 
-
-
