@@ -1,8 +1,10 @@
 using Base.Meta
+using BenchmarkTools
 
-immutable Variable
+struct Variable
     index::Int
 end
+
 
 # Represents sum(coefficients[i]*variables[i] for i in ...) + offset
 type AffineExpression
@@ -40,6 +42,8 @@ function build_manual(n)
     return aff
 end
 
+
+
 ex = :(sum(i^1.5*Variable(i) for i in 1:n))
 dump(ex)
 ex.args[2]
@@ -71,4 +75,70 @@ end
 function build_macro(n)
     return @build_expression sum(i^1.5*Variable(i) for i in 1:n)
 end
+
+
+
+@enum NodeClass CONST VAR MUL ADD
+
+struct OperationNode
+    nc::NodeClass
+    children::Vector{OperationNode}
+    metadata::Float64
+end
+
+OperationNode(v::Variable) = OperationNode(VAR, [], v.index)
+OperationNode(n::Float64) = OperationNode(CONST, [], n)
+
+Base.:*(o1::OperationNode,o2::OperationNode) = OperationNode(MUL, [o1,o2], 0.0)
+Base.:+(o1::OperationNode,o2::OperationNode) = OperationNode(ADD, [o1,o2], 0.0)
+
+
+# special structure:
+#          ADD
+#         /   \
+#       MUL    ADD
+#      /   \     \
+#  CONST   VAR   ...
+
+function graph_to_aff(g::OperationNode, aff::AffineExpression = zero(AffineExpression))
+    if g.nc == ADD
+        for c in g.children
+            graph_to_aff(c, aff)
+        end
+    elseif g.nc == MUL
+        # we know it is CONST*VAR
+        coef = 0.0
+        varidx = 0
+        @assert length(g.children) == 2
+        for c in g.children
+            if c.nc == CONST
+                coef = c.metadata
+            elseif c.nc == VAR
+                varidx = Int(c.metadata)
+            end
+        end
+        push!(aff.variables, Variable(varidx))
+        push!(aff.coefficients, coef)
+    else
+        error()
+    end
+    return aff
+end
+
+function build_graph(n)
+
+    g = sum(OperationNode(i^1.5)*OperationNode(Variable(i)) for i in 1:n)
+
+    return graph_to_aff(g)
+end
+
+@benchmark build_generator(100)
+@benchmark build_loop(100)
+@benchmark build_manual(100)
+@benchmark build_graph(100)
+
+@benchmark build_generator(1000)
+@benchmark build_loop(1000)
+@benchmark build_manual(1000)
+@benchmark build_graph(1000)
 
