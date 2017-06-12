@@ -5,9 +5,8 @@ struct Variable
     index::Int
 end
 
-
 # Represents sum(coefficients[i]*variables[i] for i in ...) + offset
-type AffineExpression
+mutable struct AffineExpression
     variables::Vector{Variable}
     coefficients::Vector{Float64}
     offset::Float64
@@ -41,41 +40,6 @@ function build_manual(n)
     end
     return aff
 end
-
-
-
-ex = :(sum(i^1.5*Variable(i) for i in 1:n))
-dump(ex)
-ex.args[2]
-ex.args[2].args
-
-function rewrite_generator(ex)
-    @assert isexpr(ex,:call)
-    @assert ex.args[1] == :sum
-    @assert isexpr(ex.args[2], :generator)
-    return quote
-        aff = zero(AffineExpression)
-        len = length($(ex.args[2].args[2].args[2]))
-        sizehint!(aff.variables, len)
-        sizehint!(aff.coefficients, len)
-        for $(ex.args[2].args[2].args[1]) in $(ex.args[2].args[2].args[2])
-            push!(aff.variables, $(ex.args[2].args[1].args[3]))
-            push!(aff.coefficients, $(ex.args[2].args[1].args[2]))
-        end
-        aff
-    end
-end
-
-rewrite_generator(:(sum(i^1.5*Variable(i) for i in 1:n)))
-
-macro build_expression(ex)
-    return rewrite_generator(ex)
-end
-
-function build_macro(n)
-    return @build_expression sum(i^1.5*Variable(i) for i in 1:n)
-end
-
 
 
 @enum NodeClass CONST VAR MUL ADD
@@ -142,3 +106,39 @@ end
 @benchmark build_manual(1000)
 @benchmark build_graph(1000)
 
+
+ex = :(sum(i^1.5*Variable(i) for i in 1:n))
+dump(ex)
+ex.args[2]
+ex.args[2].args
+
+function rewrite_generator(ex)
+    @assert isexpr(ex,:call)
+    @assert ex.args[1] == :sum
+    @assert isexpr(ex.args[2], :generator)
+    return quote
+        aff = zero(AffineExpression)
+        len = length($(ex.args[2].args[2].args[2]))
+        sizehint!(aff.variables, len)
+        sizehint!(aff.coefficients, len)
+        for $(ex.args[2].args[2].args[1]) in $(ex.args[2].args[2].args[2])
+            push!(aff.variables, $(ex.args[2].args[1].args[3]))
+            push!(aff.coefficients, $(ex.args[2].args[1].args[2]))
+        end
+        aff
+    end
+end
+
+rewrite_generator(:(sum(i^1.5*Variable(i) for i in 1:n)))
+
+macro build_expression(ex)
+    return rewrite_generator(ex)
+end
+
+function build_macro(n)
+    return @build_expression sum(i^1.5*Variable(i) for i in 1:n)
+end
+
+
+@benchmark build_macro(100)
+@benchmark build_macro(1000)
